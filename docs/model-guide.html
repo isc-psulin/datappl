@@ -187,68 +187,18 @@ load data, configure the sampler, and evaluate results.</p>
 
 <!-- ===== LIMITATIONS ===== -->
 <details class="top-section" open>
-<summary>What PClean Cannot Model (and PLUCK Can)</summary>
+<summary>Why ADT^A08</summary>
 
-<p>This ADT model works within PClean&rsquo;s constraints, but several real-world
-HL7 properties fall outside what PClean can express. These are exactly the
-properties that <a href="https://github.com/mlb2251/Pluck.jl">PLUCK</a>&rsquo;s
-recursive algebraic data types and exact inference are designed to handle.</p>
+<p>ADT^A08 (Patient Update) is the richest ADT message type &mdash; 8 segments
+covering demographics, next of kin, visit, and insurance. ADT^A01 (Admit)
+and ADT^A04 (Register) share the same segment composition, so this model
+works for those too.</p>
 
-<details open>
-<summary>1. Variable-length repeating segments</summary>
-<p>Real HL7 messages have segments that repeat a variable number of times:</p>
-<table>
-  <tr><th>Segment</th><th>Cardinality</th><th>Typical range</th></tr>
-  <tr><td>NK1 (Next of Kin)</td><td>0..*</td><td>0&ndash;3</td></tr>
-  <tr><td>IN1 (Insurance)</td><td>0..*</td><td>0&ndash;2</td></tr>
-  <tr><td>OBX (Observations)</td><td>1..*</td><td>1&ndash;288</td></tr>
-</table>
-<p>PClean requires fixed cardinality &mdash; we model exactly 1 NK1 and 1 IN1.
-PLUCK&rsquo;s recursive list types can express the variable-length structure:</p>
-<pre>
-(define (generate-nk1-list)
-  (if (flip 0.3)
-    (Cons (generate-nk1) (generate-nk1-list))
-    (Nil)))
-</pre>
-</details>
-
-<details open>
-<summary>2. Structural variants (variable field counts)</summary>
-<p>PV1 has 6 known structural variants in real data:</p>
-<table>
-  <tr><th>Fields</th><th>Frequency</th></tr>
-  <tr><td>19 fields</td><td>47.4%</td></tr>
-  <tr><td>52 fields</td><td>41.0%</td></tr>
-  <tr><td>45 fields</td><td>9.3%</td></tr>
-  <tr><td>44 fields</td><td>2.3%</td></tr>
-  <tr><td>39, 49 fields</td><td>&lt;0.01%</td></tr>
-</table>
-<p>PClean models one fixed schema. PLUCK can model the field count itself
-as a random variable &mdash; the number of fields present becomes part of the
-probabilistic program&rsquo;s output.</p>
-</details>
-
-<details open>
-<summary>3. Message-type-dependent segment composition</summary>
-<p>Different ADT event types include different segments:</p>
-<pre>
-ADT^A03 (Discharge): MSH  EVN  PID       PV1  PV2
-ADT^A08 (Update):    MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
-</pre>
-<p>This requires conditioning segment presence on message type &mdash; a structural
-choice that PClean&rsquo;s fixed-schema model cannot express. In PLUCK, message
-type would be a random variable that controls which branches of a recursive
-generator fire.</p>
-</details>
-
-<details open>
-<summary>4. Cross-segment dependencies</summary>
-<p>In ORU^R01 (lab results), the value of <code>OBR.universal_service_id</code>
-(which test was ordered) constrains which <code>OBX</code> observations can appear
-and what their valid ranges are. These cross-segment correlations require
-conditional distributions that PClean&rsquo;s class-reference model doesn&rsquo;t support.</p>
-</details>
+<p>We chose a single message type because PClean requires a fixed schema.
+It cannot model variable-length repeating segments (e.g. multiple NK1 or
+IN1 per message) or condition segment presence on message type. A model
+that handles multiple message types or variable repetition would require
+a more expressive PPL.</p>
 </details>
 
 <!-- ===== SOURCE ===== -->
@@ -265,11 +215,6 @@ conditional distributions that PClean&rsquo;s class-reference model doesn&rsquo;
 AISTATS 2021.<br>
 <a href="https://github.com/probcomp/PClean">https://github.com/probcomp/PClean</a></p>
 
-<p>The PLUCK language:</p>
-<p>Bowers, M., Lew, A., et al. (2025).
-<em>Stochastic Lazy Knowledge Compilation for Inference in Discrete Probabilistic Programs.</em>
-PLDI 2025.<br>
-<a href="https://github.com/mlb2251/Pluck.jl">https://github.com/mlb2251/Pluck.jl</a></p>
 </details>
 
 </body>

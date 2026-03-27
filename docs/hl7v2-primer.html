@@ -279,18 +279,10 @@ is a potentially corrupted snapshot of the true patient identity.</p>
 
 <details>
 <summary>Structural variation</summary>
-<p>The spec says PV1 has 52 fields. Real data shows 6 distinct field counts:</p>
-<table>
-  <tr><th>Fields</th><th>Frequency</th></tr>
-  <tr><td>19 fields</td><td>47.4%</td></tr>
-  <tr><td>52 fields</td><td>41.0%</td></tr>
-  <tr><td>45 fields</td><td>9.3%</td></tr>
-  <tr><td>44 fields</td><td>2.3%</td></tr>
-  <tr><td>39 fields</td><td>&lt;0.01%</td></tr>
-  <tr><td>49 fields</td><td>&lt;0.01%</td></tr>
-</table>
-<p>Each variant is a different &ldquo;dialect&rdquo; of the same segment. The number of
-fields present is itself a latent structural variable.</p>
+<p>The HL7 spec defines a fixed number of fields per segment (e.g. PV1 has 52),
+but implementations often send fewer fields, truncating trailing empty ones.
+The number of fields present can vary across sending systems, creating
+structural &ldquo;dialects&rdquo; of the same segment type.</p>
 </details>
 
 <details>

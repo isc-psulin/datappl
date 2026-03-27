@@ -18,11 +18,7 @@
 #      PClean requires fixed cardinality. We model at most 1 of each.
 #   2. No optional segments — PClean has no "maybe present" construct.
 #      Optional segments are modeled with empty-string defaults.
-#   3. No structural variants — PV1 has 6 known field-count variants in real
-#      data (19, 39, 44, 45, 49, 52 fields). PClean models one fixed schema.
-#
-# These limitations are exactly where PLUCK (recursive ADTs, geometric
-# distributions over list length) would provide a better fit.
+#   3. Fixed schema — PClean models one field layout per segment.
 #
 # Entity structure:
 #   Facility       — the sending/receiving system (from MSH)
@@ -213,9 +209,6 @@ PClean.@model ADT_A08_Model begin
 
     # -------------------------------------------------------------------
     # Visit: the clinical encounter (from PV1, PV2)
-    # PV1 has up to 52 fields with 6 structural variants (19/39/44/45/49/52
-    # fields). PClean cannot model this structural variation — all fields
-    # are included with the understanding that trailing fields may be empty.
     # -------------------------------------------------------------------
     @class Visit begin
         # PV1-2: Patient Class
