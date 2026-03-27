@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HL7v2 Primer for Probabilistic Programming Researchers</title>
+<title>HL7v2 Primer</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -89,7 +89,6 @@
 <body>
 
 <h1>HL7v2 Primer</h1>
-<p><em>For probabilistic programming researchers</em></p>
 
 <!-- ===== WHAT IS HL7v2 ===== -->
 <details class="top-section" open>
@@ -208,6 +207,90 @@ each position means for every segment type.</p>
 </table>
 <p>This gives HL7v2 a hierarchical structure: message &rarr; segments &rarr; fields &rarr; sub-components.</p>
 </details>
+</details>
+
+<!-- ===== COMPLEXITY IN THE SPEC ===== -->
+<details class="top-section" open>
+<summary>Complexity in the Specification</summary>
+
+<p>The example above looks simple, but the HL7 spec has a lot of built-in complexity:</p>
+
+<ul>
+  <li><strong>Repeating segments.</strong> Some segments can appear multiple times in a
+  single message. A patient may have three emergency contacts (three NK1 segments)
+  or two insurance plans (two IN1 segments). In lab results (ORU messages),
+  a single message can contain hundreds of OBX result segments grouped under
+  multiple OBR order segments.</li>
+
+  <li><strong>Conditional rules.</strong> The spec defines rules about when fields or
+  segments are required. For example, certain fields in PV1 are required only
+  for inpatient visits, not outpatient. Some fields are conditional on the
+  message type &mdash; an admit (A01) requires fields that an update (A08) does not.</li>
+
+  <li><strong>Version evolution.</strong> HL7v2 has gone through many versions (2.1, 2.2,
+  2.3, 2.3.1, 2.4, 2.5, 2.5.1, 2.6, 2.7, 2.8, 2.9). Each version added
+  fields to existing segments and introduced new segment types. PID had ~20
+  fields in version 2.1 and has 40 in later versions. PV1 grew to 52 fields.
+  The newer <strong>v2plus</strong> specification consolidates all versions into a single
+  document, annotating each field with the version it was introduced in.
+  From a modeling perspective, this means the &ldquo;shape&rdquo; of a segment depends
+  on which version the sender is using.</li>
+
+  <li><strong>Code tables.</strong> Many fields use coded values from HL7-defined tables
+  (e.g. Table 0001 for sex, Table 0002 for marital status). The spec defines
+  hundreds of these tables. Some are small and fixed; others are large and
+  extensible.</li>
+</ul>
+</details>
+
+<!-- ===== HOW INSTITUTIONS DEVIATE ===== -->
+<details class="top-section" open>
+<summary>How Real Institutions Deviate from the Spec</summary>
+
+<p>In practice, the messages hospitals actually send diverge from the spec in
+many ways. This is the central challenge for anyone trying to model HL7 data.</p>
+
+<ul>
+  <li><strong>Version misreporting.</strong> The MSH segment declares which HL7 version
+  the message follows (e.g. <code>2.5.1</code>). But senders routinely include
+  fields that belong to a later version, or omit fields that their declared
+  version requires. The version field is unreliable as a predictor of what
+  the message actually contains.</li>
+
+  <li><strong>Truncated segments.</strong> Instead of sending all defined fields for a
+  segment, senders often stop after the last field that has a value. A PV1
+  that the spec says has 52 fields might arrive with 19 or 44 fields. Different
+  sending systems truncate at different points, creating multiple structural
+  &ldquo;dialects&rdquo; of the same segment.</li>
+
+  <li><strong>Data in the wrong fields.</strong> Institutions sometimes put data in
+  fields that the spec assigns a different purpose. A local patient identifier
+  might go in PID-2 (which was officially withdrawn in v2.4) instead of PID-3.
+  Notes intended for a free-text field might end up in a coded field. These
+  are not random errors &mdash; they are systematic local conventions baked into
+  the sending system&rsquo;s configuration.</li>
+
+  <li><strong>Local codes instead of standard codes.</strong> Where the spec calls for
+  values from an HL7-defined table, institutions often substitute their own
+  codes. A sex field might contain <code>MALE</code> instead of <code>M</code>.
+  A race field might use local numeric codes instead of the HL7 table values.
+  Some sites use entirely custom code systems.</li>
+
+  <li><strong>Z-segments.</strong> The spec reserves segment names starting with
+  <code>Z</code> for local use. Institutions add custom Z-segments (like
+  <code>ZPD</code> or <code>ZLB</code>) to carry data that doesn&rsquo;t fit the
+  standard segments. These are invisible to any model derived purely from
+  the spec.</li>
+
+  <li><strong>Character-level corruption.</strong> As data passes between systems,
+  names, addresses, and IDs accumulate typos &mdash; transpositions, deletions,
+  insertions. The same patient&rsquo;s name may appear differently in every
+  message.</li>
+</ul>
+
+<p>The net effect is that real HL7 data is a noisy, institution-specific
+dialect of the spec. The spec tells you what the messages <em>should</em>
+look like; the data tells you what they actually look like.</p>
 </details>
 
 </body>
