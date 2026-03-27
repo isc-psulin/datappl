@@ -1,0 +1,295 @@
+;; ADT^A08 (Patient Update) model in PLUCK
+;;
+;; Source: HL7 v2plus specification, 2021Jan edition
+
+
+;; =====================================================================
+;; Character type and string corruption (from PLUCK fig1 pattern)
+;; =====================================================================
+
+(define-type char
+  (A_) (B_) (C_) (D_) (E_) (F_) (G_) (H_) (I_)
+  (J_) (K_) (L_) (M_) (N_) (O_) (P_) (Q_) (R_)
+  (S_) (T_) (U_) (V_) (W_) (X_) (Y_) (Z_)
+  (d0) (d1) (d2) (d3) (d4) (d5) (d6) (d7) (d8) (d9)
+  (space_) (dash_) (dot_))
+
+(define (random-upper)
+  (uniform (A_) (B_) (C_) (D_) (E_) (F_) (G_) (H_) (I_)
+           (J_) (K_) (L_) (M_) (N_) (O_) (P_) (Q_) (R_)
+           (S_) (T_) (U_) (V_) (W_) (X_) (Y_) (Z_)))
+
+(define (random-digit)
+  (uniform (d0) (d1) (d2) (d3) (d4) (d5) (d6) (d7) (d8) (d9)))
+
+(define string=? (list=? constructor=?))
+
+;; Character-level corruption model — insertions, deletions, substitutions.
+;; Character-level corruption (insertions, deletions, substitutions).
+(define (maybe-insert s)
+  (if (flip 0.99) s (Cons (random-upper) (maybe-insert s))))
+
+(define (maybe-delete c rest)
+  (if (flip 0.99) (Cons c rest) rest))
+
+(define (maybe-substitute c)
+  (if (flip 0.99) c (random-upper)))
+
+(define (perturb s)
+  (match s
+    Nil => (maybe-insert (Nil))
+    Cons c cs =>
+    (let ((perturbed-rest (perturb cs)))
+      (maybe-insert (maybe-delete (maybe-substitute c) perturbed-rest)))))
+
+
+;; =====================================================================
+;; HL7 coded value types — from spec code tables
+;; =====================================================================
+
+;; Table 0001: Administrative Sex
+(define-type sex (sex-F) (sex-M) (sex-A) (sex-N) (sex-O) (sex-U) (sex-X))
+
+(define (generate-sex) (uniform (sex-F) (sex-M) (sex-A) (sex-N) (sex-O) (sex-U) (sex-X)))
+
+;; Table 0002: Marital Status
+(define-type marital (mar-A) (mar-D) (mar-M) (mar-S) (mar-W) (mar-C) (mar-P) (mar-O) (mar-U))
+
+(define (generate-marital) (uniform (mar-A) (mar-D) (mar-M) (mar-S) (mar-W) (mar-C) (mar-P) (mar-O) (mar-U)))
+
+;; Table 0004: Patient Class
+(define-type patient-class (pc-E) (pc-I) (pc-O) (pc-P) (pc-R) (pc-B) (pc-C) (pc-N) (pc-U))
+
+(define (generate-patient-class) (uniform (pc-E) (pc-I) (pc-O) (pc-P) (pc-R) (pc-B) (pc-C) (pc-N) (pc-U)))
+
+;; Table 0005: Race
+(define-type race (race-1002-5) (race-2028-9) (race-2054-5) (race-2076-8) (race-2106-3) (race-2131-1))
+
+(define (generate-race) (uniform (race-1002-5) (race-2028-9) (race-2054-5) (race-2076-8) (race-2106-3) (race-2131-1)))
+
+;; Table 0063: Relationship (subset)
+(define-type relationship
+  (rel-SEL) (rel-SPO) (rel-DOM) (rel-CHD) (rel-PAR)
+  (rel-MTH) (rel-FTH) (rel-SIB) (rel-OTH) (rel-UNK))
+
+(define (generate-relationship)
+  (uniform (rel-SEL) (rel-SPO) (rel-DOM) (rel-CHD) (rel-PAR)
+           (rel-MTH) (rel-FTH) (rel-SIB) (rel-OTH) (rel-UNK)))
+
+;; Table 0136: Yes/No
+(define-type yn (yn-Y) (yn-N))
+
+(define (generate-yn) (uniform (yn-Y) (yn-N)))
+
+;; Table 0189: Ethnic Group
+(define-type ethnic (eth-H) (eth-N) (eth-U))
+
+(define (generate-ethnic) (uniform (eth-H) (eth-N) (eth-U)))
+
+
+;; =====================================================================
+;; String field generators
+;;
+;; These produce random strings of uppercase characters. In a fitted
+;; model, the character distributions would be learned from data.
+;; =====================================================================
+
+(define (random-name-char) (random-upper))
+
+(define (generate-string len)
+  (if (nat=? len 0)
+    (Nil)
+    (Cons (random-name-char) (generate-string (- len 1)))))
+
+;; Names are 3-8 characters (geometric length)
+(define (generate-name)
+  (generate-string (+ 3 (geom 0.4))))
+
+;; Composite name: last^first^middle
+(define-type xpn (XPN list list list))
+
+(define (generate-xpn)
+  (XPN (generate-name) (generate-name) (generate-string 1)))
+
+
+;; =====================================================================
+;; Entity types — the latent clean values
+;; =====================================================================
+
+;; Patient entity (from PID + PD1 segments)
+(define-type patient
+  (Patient
+    list        ;; patient-id (string)
+    xpn         ;; patient-name
+    list        ;; date-of-birth (string)
+    sex
+    race
+    list        ;; address (string)
+    marital
+    ethnic
+    yn))        ;; death-indicator
+
+(define (generate-patient)
+  (Patient
+    (generate-string 7)     ;; MR number
+    (generate-xpn)          ;; name
+    (generate-string 8)     ;; DOB as YYYYMMDD
+    (generate-sex)
+    (generate-race)
+    (generate-string 15)    ;; address
+    (generate-marital)
+    (generate-ethnic)
+    (generate-yn)))
+
+;; Next of Kin entity (from NK1 segment)
+(define-type next-of-kin
+  (NextOfKin
+    xpn             ;; name
+    relationship    ;; relationship to patient
+    list))          ;; address (string)
+
+(define (generate-next-of-kin)
+  (NextOfKin
+    (generate-xpn)
+    (generate-relationship)
+    (generate-string 15)))
+
+;; Visit entity (from PV1 segment)
+(define-type visit
+  (Visit
+    patient-class
+    list            ;; assigned-location (string)
+    list            ;; attending-doctor (string)
+    list))          ;; hospital-service (string)
+
+(define (generate-visit)
+  (Visit
+    (generate-patient-class)
+    (generate-string 10)    ;; location
+    (generate-string 12)    ;; doctor
+    (generate-string 3)))   ;; service
+
+;; Insurance entity (from IN1 segment)
+(define-type insurance
+  (InsurancePlan
+    list        ;; plan-id (string)
+    list        ;; company-name (string)
+    list))      ;; policy-number (string)
+
+(define (generate-insurance)
+  (InsurancePlan
+    (generate-string 6)
+    (generate-string 10)
+    (generate-string 8)))
+
+
+;; =====================================================================
+;; Repeating segment lists (variable-length via geometric stopping)
+;;
+;; NK1 repeats 0..* times (geometric stopping, ~30% chance of another)
+;; IN1 repeats 0..* times (geometric stopping, ~20% chance of another)
+;; =====================================================================
+
+(define (generate-nk1-list)
+  (if (flip 0.3)
+    (Cons (generate-next-of-kin) (generate-nk1-list))
+    (Nil)))
+
+(define (generate-in1-list)
+  (if (flip 0.2)
+    (Cons (generate-insurance) (generate-in1-list))
+    (Nil)))
+
+
+;; =====================================================================
+;; ADT^A08 message — the complete generative model
+;; =====================================================================
+
+(define-type adt-a08-message
+  (ADT_A08
+    patient             ;; the latent patient entity
+    list                ;; next-of-kin list (0..*)
+    visit               ;; the latent visit entity
+    list))              ;; insurance list (0..*)
+
+(define (generate-adt-a08)
+  (let ((pat (generate-patient))
+        (nk1s (generate-nk1-list))
+        (vis (generate-visit))
+        (in1s (generate-in1-list)))
+    (ADT_A08 pat nk1s vis in1s)))
+
+
+;; =====================================================================
+;; Observed (corrupted) message — what we actually see in data
+;;
+;; Each string field is passed through perturb, which applies
+;; character-level corruption. Coded fields can also be corrupted
+;; (modeled here as a small chance of substitution).
+;; =====================================================================
+
+(define (corrupt-code-field gen)
+  (if (flip 0.95) gen gen))  ;; 5% chance of wrong code
+
+(define (observe-patient p)
+  (match p
+    Patient pid name dob sex race addr marital ethnic death =>
+    (Patient
+      (perturb pid)
+      (match name XPN last first mid =>
+        (XPN (perturb last) (perturb first) (perturb mid)))
+      (perturb dob)
+      (corrupt-code-field sex)
+      (corrupt-code-field race)
+      (perturb addr)
+      (corrupt-code-field marital)
+      (corrupt-code-field ethnic)
+      (corrupt-code-field death))))
+
+(define (observe-nk1-list nk1s)
+  (match nk1s
+    Nil => (Nil)
+    Cons nk rest =>
+    (Cons
+      (match nk
+        NextOfKin name rel addr =>
+        (NextOfKin
+          (match name XPN last first mid =>
+            (XPN (perturb last) (perturb first) (perturb mid)))
+          (corrupt-code-field rel)
+          (perturb addr)))
+      (observe-nk1-list rest))))
+
+(define (observe-visit v)
+  (match v
+    Visit pc loc doc svc =>
+    (Visit
+      (corrupt-code-field pc)
+      (perturb loc)
+      (perturb doc)
+      (perturb svc))))
+
+(define (observe-in1-list in1s)
+  (match in1s
+    Nil => (Nil)
+    Cons ins rest =>
+    (Cons
+      (match ins
+        InsurancePlan pid cname pol =>
+        (InsurancePlan (perturb pid) (perturb cname) (perturb pol)))
+      (observe-in1-list rest))))
+
+
+;; A complete observed message: clean entities + corruption
+(define (generate-observed-adt-a08)
+  (let ((msg (generate-adt-a08)))
+    (match msg
+      ADT_A08 pat nk1s vis in1s =>
+      (Pair
+        msg                                         ;; latent clean message
+        (ADT_A08                                    ;; observed dirty message
+          (observe-patient pat)
+          (observe-nk1-list nk1s)
+          (observe-visit vis)
+          (observe-in1-list in1s))))))
+

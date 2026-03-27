@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HL7v2 Primer</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 880px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #1a1a1a;
+    line-height: 1.7;
+  }
+  h1 { font-size: 1.8em; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 1.4em; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+
+  details {
+    margin: 10px 0;
+    border-left: 3px solid #ccc;
+    padding-left: 16px;
+  }
+  details[open] > summary { font-weight: 600; }
+  summary {
+    cursor: pointer;
+    padding: 6px 0;
+    font-size: 1em;
+  }
+  summary:hover { color: #0066cc; }
+
+  .top-section > summary {
+    font-size: 1.2em;
+    font-weight: 700;
+    padding: 10px 0;
+  }
+  .top-section {
+    border-left: 4px solid #333;
+    margin: 24px 0;
+    padding-left: 20px;
+  }
+
+  code {
+    background: #f5f5f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 0.9em;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th { background: #f5f5f5; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  .hl7-msg {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 0.82em;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .seg-tag { color: #0550ae; font-weight: 700; }
+  .field-sep { color: #999; }
+  .sub-sep { color: #d63384; }
+  .field-val { color: #1a1a1a; }
+</style>
+</head>
+<body>
+
+<h1>HL7v2 Primer</h1>
+
+<!-- ===== WHAT IS HL7v2 ===== -->
+<details class="top-section" open>
+<summary>What is HL7v2?</summary>
+
+<p>HL7v2 is a messaging standard for exchanging clinical data between healthcare
+IT systems. When a patient is admitted, discharged, gets lab work, or has
+insurance updated, the hospital&rsquo;s systems exchange HL7v2 messages. It has been
+the dominant standard since the late 1980s. A single mid-size hospital
+generates millions of these messages per year.</p>
+</details>
+
+<!-- ===== MESSAGES AND TYPES ===== -->
+<details class="top-section" open>
+<summary>Messages and Types</summary>
+
+<p>An HL7v2 message is a plain-text record of something that happened in
+a hospital &mdash; a patient was admitted, a lab result came back, an appointment
+was scheduled. Each message has a <strong>type</strong> that says what kind of event
+it represents.</p>
+
+<p>There are many message types. The major categories are:</p>
+<ul>
+  <li><strong>ADT</strong> (Admit, Discharge, Transfer) &mdash; patient movement and demographics</li>
+  <li><strong>ORU</strong> (Observation Result) &mdash; lab results</li>
+  <li><strong>SIU</strong> (Scheduling) &mdash; appointments</li>
+  <li><strong>ORM</strong> (Order) &mdash; clinical orders</li>
+</ul>
+
+<p>Within each category there are specific event types. For example, ADT alone
+has dozens: A01 (admit), A02 (transfer), A03 (discharge), A04 (register),
+A08 (update demographics), and many more.</p>
+
+<p>In this repo we model <strong>ADT^A08</strong> (patient demographic update). We chose
+it because it uses a fixed set of 8 segments covering demographics, next of kin,
+visit, and insurance. Pluck&rsquo;s recursive generative models handle the
+variable-length repeating segments (NK1, IN1) that fixed-schema approaches cannot express.</p>
+</details>
+
+<!-- ===== STRUCTURE OF A MESSAGE ===== -->
+<details class="top-section" open>
+<summary>Structure of a Message</summary>
+
+<p>A message is made up of <strong>segments</strong>, one per line. Each segment starts
+with a three-letter code that identifies what kind of data it carries.
+Within a segment, <strong>fields</strong> are separated by <code>|</code> (pipe), and
+<strong>sub-components</strong> within a field are separated by <code>^</code> (caret).</p>
+
+<p>Here is an example ADT^A08 message:</p>
+
+<div class="hl7-msg"><span class="seg-tag">MSH</span><span class="field-sep">|</span><span class="sub-sep">^~\&amp;</span><span class="field-sep">|</span><span class="field-val">EPIC</span><span class="field-sep">|</span><span class="field-val">BMC</span><span class="field-sep">|||</span><span class="field-val">20170614120000</span><span class="field-sep">||</span><span class="field-val">ADT<span class="sub-sep">^</span>A08</span><span class="field-sep">|</span><span class="field-val">MSG00001</span><span class="field-sep">|</span><span class="field-val">P</span><span class="field-sep">|</span><span class="field-val">2.5.1</span>
+<span class="seg-tag">EVN</span><span class="field-sep">|</span><span class="field-val">A08</span><span class="field-sep">|</span><span class="field-val">20170614120000</span>
+<span class="seg-tag">PID</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">||</span><span class="field-val">MR12345<span class="sub-sep">^^^</span>BMC<span class="sub-sep">^</span>MR</span><span class="field-sep">||</span><span class="field-val">SMITH<span class="sub-sep">^</span>JOHN<span class="sub-sep">^</span>A</span><span class="field-sep">||</span><span class="field-val">19800315</span><span class="field-sep">|</span><span class="field-val">M</span><span class="field-sep">|||</span><span class="field-val">123 MAIN ST<span class="sub-sep">^^</span>SPRINGFIELD<span class="sub-sep">^</span>MA<span class="sub-sep">^</span>01103</span>
+<span class="seg-tag">PD1</span><span class="field-sep">|||</span><span class="field-val">BMC PRIMARY CARE<span class="sub-sep">^^^^</span></span><span class="field-sep">||||||||</span><span class="field-val">N</span>
+<span class="seg-tag">NK1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">|</span><span class="field-val">SMITH<span class="sub-sep">^</span>JANE</span><span class="field-sep">|</span><span class="field-val">SPO</span><span class="field-sep">|</span><span class="field-val">456 MAIN ST<span class="sub-sep">^^</span>SPRINGFIELD<span class="sub-sep">^</span>MA<span class="sub-sep">^</span>01103</span>
+<span class="seg-tag">PV1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">|</span><span class="field-val">I</span><span class="field-sep">|</span><span class="field-val">4N<span class="sub-sep">^</span>415<span class="sub-sep">^</span>1<span class="sub-sep">^^^</span>BMC</span><span class="field-sep">||||</span><span class="field-val">1234567890<span class="sub-sep">^</span>JONES<span class="sub-sep">^</span>ROBERT<span class="sub-sep">^</span>J<span class="sub-sep">^^^</span>MD</span><span class="field-sep">|||</span><span class="field-val">MED</span><span class="field-sep">||||</span><span class="field-val">1</span><span class="field-sep">|||</span><span class="field-val">1234567890<span class="sub-sep">^</span>JONES<span class="sub-sep">^</span>ROBERT<span class="sub-sep">^</span>J<span class="sub-sep">^^^</span>MD</span>
+<span class="seg-tag">PV2</span><span class="field-sep">||||||||||||||||||||||||||||||||||||||||||||||||</span><span class="field-val">20170620</span>
+<span class="seg-tag">IN1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">||</span><span class="field-val">BCBS001</span><span class="field-sep">|</span><span class="field-val">BLUE CROSS BLUE SHIELD</span><span class="field-sep">|||||||||||</span><span class="field-val">SMITH<span class="sub-sep">^</span>JOHN<span class="sub-sep">^</span>A</span><span class="field-sep">|</span><span class="field-val">SEL</span><span class="field-sep">|</span><span class="field-val">19800315</span></div>
+
+<p>This message has 8 segments. The first line (<code>MSH</code>) is the message
+header &mdash; it says who sent the message, when, and what type it is.
+<code>PID</code> carries the patient&rsquo;s name, date of birth, and address.
+<code>PV1</code> describes the visit (location, attending doctor). And so on.</p>
+
+<h2>Segments in an ADT^A08 message</h2>
+
+<table>
+  <tr><th>Segment</th><th>Name</th><th>What it carries</th></tr>
+  <tr><td><code>MSH</code></td><td>Message Header</td><td>Metadata: who sent it, when, what type of message</td></tr>
+  <tr><td><code>EVN</code></td><td>Event Type</td><td>What triggered this message</td></tr>
+  <tr><td><code>PID</code></td><td>Patient Identification</td><td>Name, DOB, sex, race, address, account numbers</td></tr>
+  <tr><td><code>PD1</code></td><td>Patient Demographics</td><td>Living situation, primary care facility, living will</td></tr>
+  <tr><td><code>NK1</code></td><td>Next of Kin</td><td>Emergency contacts and relationship to patient</td></tr>
+  <tr><td><code>PV1</code></td><td>Patient Visit</td><td>Location, attending doctor, admit/discharge dates</td></tr>
+  <tr><td><code>PV2</code></td><td>Patient Visit (add'l)</td><td>Admit reason, expected surgery date</td></tr>
+  <tr><td><code>IN1</code></td><td>Insurance</td><td>Plan, company, policy number, insured party</td></tr>
+</table>
+
+<details>
+<summary>Fields in detail</summary>
+<p>Fields are positional &mdash; their meaning is determined by their position within the
+segment. For example, in a PID segment:</p>
+<pre>PID|1||MR12345^^^BMC^MR||SMITH^JOHN^A||19800315|M</pre>
+<table>
+  <tr><th>Position</th><th>Field Name</th><th>Value</th></tr>
+  <tr><td>PID-1</td><td>Set ID</td><td><code>1</code></td></tr>
+  <tr><td>PID-2</td><td>Patient ID</td><td><em>(empty)</em></td></tr>
+  <tr><td>PID-3</td><td>Patient Identifier List</td><td><code>MR12345^^^BMC^MR</code></td></tr>
+  <tr><td>PID-4</td><td><em>(empty)</em></td><td></td></tr>
+  <tr><td>PID-5</td><td>Patient Name</td><td><code>SMITH^JOHN^A</code></td></tr>
+  <tr><td>PID-6</td><td><em>(empty)</em></td><td></td></tr>
+  <tr><td>PID-7</td><td>Date/Time of Birth</td><td><code>19800315</code></td></tr>
+  <tr><td>PID-8</td><td>Administrative Sex</td><td><code>M</code></td></tr>
+</table>
+<p>Empty fields (consecutive <code>||</code>) are common. The HL7 spec defines what
+each position means for every segment type.</p>
+</details>
+
+<details>
+<summary>Sub-components in detail</summary>
+<p>Some fields have internal structure, using <code>^</code> as separator:</p>
+<table>
+  <tr><th>Field value</th><th>Meaning</th></tr>
+  <tr>
+    <td><code>SMITH^JOHN^A</code></td>
+    <td>last name <code>^</code> first name <code>^</code> middle initial</td>
+  </tr>
+  <tr>
+    <td><code>MR12345^^^BMC^MR</code></td>
+    <td>ID <code>^</code> check digit <code>^</code> scheme <code>^</code> assigning authority <code>^</code> type code</td>
+  </tr>
+  <tr>
+    <td><code>4N^415^1^^^BMC</code></td>
+    <td>unit <code>^</code> room <code>^</code> bed <code>^</code> <em>(3 empty)</em> <code>^</code> facility</td>
+  </tr>
+</table>
+<p>This gives HL7v2 a hierarchical structure: message &rarr; segments &rarr; fields &rarr; sub-components.</p>
+</details>
+</details>
+
+<!-- ===== COMPLEXITY IN THE SPEC ===== -->
+<details class="top-section" open>
+<summary>Complexity in the Specification</summary>
+
+<p>The example above looks simple, but the HL7 spec has a lot of built-in complexity:</p>
+
+<ul>
+  <li><strong>Repeating segments.</strong> Some segments can appear multiple times in a
+  single message. A patient may have three emergency contacts (three NK1 segments)
+  or two insurance plans (two IN1 segments). In lab results (ORU messages),
+  a single message can contain hundreds of OBX result segments grouped under
+  multiple OBR order segments.</li>
+
+  <li><strong>Conditional rules.</strong> The spec defines rules about when fields or
+  segments are required. For example, certain fields in PV1 are required only
+  for inpatient visits, not outpatient. Some fields are conditional on the
+  message type &mdash; an admit (A01) requires fields that an update (A08) does not.</li>
+
+  <li><strong>Version evolution.</strong> HL7v2 has gone through many versions (2.1, 2.2,
+  2.3, 2.3.1, 2.4, 2.5, 2.5.1, 2.6, 2.7, 2.8, 2.9). Each version added
+  fields to existing segments and introduced new segment types. PID had ~20
+  fields in version 2.1 and has 40 in later versions. PV1 grew to 52 fields.
+  The newer <strong>v2plus</strong> specification consolidates all versions into a single
+  document, annotating each field with the version it was introduced in.
+  The &ldquo;shape&rdquo; of a segment depends on which version the sender is using.</li>
+
+  <li><strong>Code tables.</strong> Many fields use coded values from HL7-defined tables
+  (e.g. Table 0001 for sex, Table 0002 for marital status). The spec defines
+  hundreds of these tables. Some are small and fixed; others are large and
+  extensible.</li>
+</ul>
+</details>
+
+<!-- ===== HOW INSTITUTIONS DEVIATE ===== -->
+<details class="top-section" open>
+<summary>How Institutions Deviate from the Spec</summary>
+
+<p>In practice, the messages hospitals actually send diverge from the spec in
+many ways. This is the central challenge for anyone trying to model HL7 data.</p>
+
+<ul>
+  <li><strong>Version misreporting.</strong> The MSH segment declares which HL7 version
+  the message follows (e.g. <code>2.5.1</code>). But senders routinely include
+  fields that belong to a later version, or omit fields that their declared
+  version requires. The version field is unreliable as a predictor of what
+  the message actually contains.</li>
+
+  <li><strong>Truncated segments.</strong> Instead of sending all defined fields for a
+  segment, senders often stop after the last field that has a value. A PV1
+  that the spec says has 52 fields might arrive with 19 or 44 fields. Different
+  sending systems truncate at different points, creating multiple structural
+  &ldquo;dialects&rdquo; of the same segment.</li>
+
+  <li><strong>Data in the wrong fields.</strong> Institutions sometimes put data in
+  fields that the spec assigns a different purpose. A local patient identifier
+  might go in PID-2 (which was officially withdrawn in v2.4) instead of PID-3.
+  Notes intended for a free-text field might end up in a coded field. These
+  are not random errors &mdash; they are systematic local conventions baked into
+  the sending system&rsquo;s configuration.</li>
+
+  <li><strong>Local codes instead of standard codes.</strong> Where the spec calls for
+  values from an HL7-defined table, institutions often substitute their own
+  codes. A sex field might contain <code>MALE</code> instead of <code>M</code>.
+  A race field might use local numeric codes instead of the HL7 table values.
+  Some sites use entirely custom code systems.</li>
+
+  <li><strong>Z-segments.</strong> The spec reserves segment names starting with
+  <code>Z</code> for local use. Institutions add custom Z-segments (like
+  <code>ZPD</code> or <code>ZLB</code>) to carry data that doesn&rsquo;t fit the
+  standard segments. These are invisible to any model derived purely from
+  the spec.</li>
+
+  <li><strong>Character-level corruption.</strong> As data passes between systems,
+  names, addresses, and IDs accumulate typos &mdash; transpositions, deletions,
+  insertions. The same patient&rsquo;s name may appear differently in every
+  message.</li>
+</ul>
+
+<p>The net effect is that real HL7 data is a noisy, institution-specific
+dialect of the spec. The spec tells you what the messages <em>should</em>
+look like; the data tells you what they actually look like.</p>
+
+<p>These deviations are not independent. A hospital that inserts an extra
+field in MSH has usually done so because of a vendor configuration decision
+that also affects other segments. A site that uses local codes in one table
+tends to use local codes in others. Custom Z-segments appear in consistent
+patterns across a site&rsquo;s messages. The deviations form a coherent system
+&mdash; an institutional dialect &mdash; that reflects a set of underlying decisions
+about how to adapt the shared standard to local needs.</p>
+
+<p>An experienced HL7 analyst encountering data from an unfamiliar hospital
+can typically infer the local conventions from a small sample of messages.
+They compare what they see against what the spec predicts, notice the
+discrepancies, and reason about what configuration choices would produce
+those discrepancies. A shifted field implies an insertion; a cluster of
+unfamiliar codes implies a local code table; a consistently truncated
+segment implies a vendor default. From dozens of messages they build
+a working model of an institution they&rsquo;ve never visited, accurate enough
+to parse the remaining millions.</p>
+
+<p>There are roughly 5,000 hospitals in the United States, each running
+their own variant. The variants are not fully independent &mdash; hospitals
+using the same EHR vendor (Epic, Cerner, MEDITECH) share structural
+patterns, and hospitals in the same health system share conventions.
+But each site has local mutations layered on top. The result is a
+population of thousands of divergent implementations of one shared
+standard, where each implementation reflects a history of local decisions
+that are rarely documented and typically exist only as institutional
+knowledge.</p>
+</details>
+
+</body>
+</html>
