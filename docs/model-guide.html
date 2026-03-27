@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HL7v2 ADT Models for PClean</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 880px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #1a1a1a;
+    line-height: 1.7;
+  }
+  h1 { font-size: 1.8em; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 1.4em; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 1.15em; margin-top: 24px; }
+
+  details {
+    margin: 10px 0;
+    border-left: 3px solid #ccc;
+    padding-left: 16px;
+  }
+  details[open] > summary { font-weight: 600; }
+  summary {
+    cursor: pointer;
+    padding: 6px 0;
+    font-size: 1em;
+  }
+  summary:hover { color: #0066cc; }
+
+  .top-section > summary {
+    font-size: 1.2em;
+    font-weight: 700;
+    padding: 10px 0;
+  }
+  .top-section {
+    border-left: 4px solid #333;
+    margin: 24px 0;
+    padding-left: 20px;
+  }
+
+  code {
+    background: #f5f5f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 0.9em;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th { background: #f5f5f5; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  .callout {
+    background: #f0f7ff;
+    border-left: 4px solid #0066cc;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout-warn {
+    background: #fff8f0;
+    border-left: 4px solid #e67700;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .entity-diagram {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+
+  a { color: #0066cc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .file-table td:first-child { font-family: monospace; }
+</style>
+</head>
+<body>
+
+<h1>HL7v2 ADT Models for PClean</h1>
+<p><em>Probabilistic data cleaning models derived from the HL7 specification</em></p>
+
+<div class="callout">
+  <strong>New to HL7?</strong> Read <a href="hl7v2-primer.html">the HL7v2 primer</a> first.
+</div>
+
+<!-- ===== WHAT THIS IS ===== -->
+<details class="top-section" open>
+<summary>What This Is</summary>
+
+<p>A <a href="https://github.com/probcomp/PClean">PClean</a> (Julia DSL) model
+for HL7v2 ADT^A08 (Patient Update) messages, derived entirely from the
+HL7 v2plus specification (2021Jan edition). No institutional data was used &mdash;
+all priors are uninformative/uniform.</p>
+
+<p>PClean performs <strong>entity resolution</strong>: given many dirty ADT messages,
+it infers that records with similar patient names, IDs, and addresses refer
+to the <strong>same latent Patient entity</strong>, and recovers the clean values.</p>
+</details>
+
+<!-- ===== MODEL STRUCTURE ===== -->
+<details class="top-section" open>
+<summary>Model Structure</summary>
+
+<div class="entity-diagram">
+Facility       &mdash; sending/receiving system  (from MSH segment)
+Patient        &mdash; the person                (from PID + PD1 segments)
+NextOfKin      &mdash; emergency contact         (from NK1 segment)
+Visit          &mdash; clinical encounter        (from PV1 + PV2 segments)
+InsurancePlan  &mdash; coverage info             (from IN1 segment)
+
+ADT_A08_Record &mdash; one observed message
+                  references all entities above,
+                  with AddTypos corruption on each field
+</div>
+
+<details>
+<summary>How PClean&rsquo;s entity model works</summary>
+<p>PClean distinguishes between <strong>latent entities</strong> (the true, clean
+real-world things) and <strong>observed records</strong> (the dirty data you actually see).</p>
+<p>Multiple observed records can reference the <em>same</em> latent entity.
+For example, 50 ADT messages about the same patient all reference one
+<code>Patient</code> entity &mdash; even though each message spells the name slightly differently.
+PClean&rsquo;s inference recovers:</p>
+<ul>
+  <li>The clean attribute values for each entity</li>
+  <li>Which records belong to which entities (entity resolution / deduplication)</li>
+</ul>
+</details>
+</details>
+
+<!-- ===== FILES ===== -->
+<details class="top-section" open>
+<summary>Files</summary>
+
+<table class="file-table">
+  <tr><th>File</th><th>Description</th></tr>
+  <tr><td>adt_a08.jl</td><td>PClean Julia model &mdash; 5 entity classes, 42 query columns</td></tr>
+  <tr><td>hl7v2-primer.html</td><td>HL7v2 background for PPL researchers</td></tr>
+  <tr><td>README.html</td><td>This file</td></tr>
+</table>
+</details>
+
+<!-- ===== RUNNING ===== -->
+<details class="top-section">
+<summary>Running the Model</summary>
+
+<p>Requires <a href="https://github.com/probcomp/PClean">PClean.jl</a>:</p>
+
+<pre>
+using Pkg
+Pkg.add(url="https://github.com/probcomp/PClean")
+include("adt_a08.jl")
+</pre>
+
+<p>To run inference, you need a CSV file with columns matching the query
+mapping (PID_PatientName, PV1_PatientClass, etc.) &mdash; one row per message.
+The inference section at the bottom of <code>adt_a08.jl</code> shows how to
+load data, configure the sampler, and evaluate results.</p>
+</details>
+
+<!-- ===== LIMITATIONS ===== -->
+<details class="top-section" open>
+<summary>What PClean Cannot Model (and PLUCK Can)</summary>
+
+<p>This ADT model works within PClean&rsquo;s constraints, but several real-world
+HL7 properties fall outside what PClean can express. These are exactly the
+properties that <a href="https://github.com/mlb2251/Pluck.jl">PLUCK</a>&rsquo;s
+recursive algebraic data types and exact inference are designed to handle.</p>
+
+<details open>
+<summary>1. Variable-length repeating segments</summary>
+<p>Real HL7 messages have segments that repeat a variable number of times:</p>
+<table>
+  <tr><th>Segment</th><th>Cardinality</th><th>Typical range</th></tr>
+  <tr><td>NK1 (Next of Kin)</td><td>0..*</td><td>0&ndash;3</td></tr>
+  <tr><td>IN1 (Insurance)</td><td>0..*</td><td>0&ndash;2</td></tr>
+  <tr><td>OBX (Observations)</td><td>1..*</td><td>1&ndash;288</td></tr>
+</table>
+<p>PClean requires fixed cardinality &mdash; we model exactly 1 NK1 and 1 IN1.
+PLUCK&rsquo;s recursive list types can express the variable-length structure:</p>
+<pre>
+(define (generate-nk1-list)
+  (if (flip 0.3)
+    (Cons (generate-nk1) (generate-nk1-list))
+    (Nil)))
+</pre>
+</details>
+
+<details open>
+<summary>2. Structural variants (variable field counts)</summary>
+<p>PV1 has 6 known structural variants in real data:</p>
+<table>
+  <tr><th>Fields</th><th>Frequency</th></tr>
+  <tr><td>19 fields</td><td>47.4%</td></tr>
+  <tr><td>52 fields</td><td>41.0%</td></tr>
+  <tr><td>45 fields</td><td>9.3%</td></tr>
+  <tr><td>44 fields</td><td>2.3%</td></tr>
+  <tr><td>39, 49 fields</td><td>&lt;0.01%</td></tr>
+</table>
+<p>PClean models one fixed schema. PLUCK can model the field count itself
+as a random variable &mdash; the number of fields present becomes part of the
+probabilistic program&rsquo;s output.</p>
+</details>
+
+<details open>
+<summary>3. Message-type-dependent segment composition</summary>
+<p>Different ADT event types include different segments:</p>
+<pre>
+ADT^A03 (Discharge): MSH  EVN  PID       PV1  PV2
+ADT^A08 (Update):    MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
+</pre>
+<p>This requires conditioning segment presence on message type &mdash; a structural
+choice that PClean&rsquo;s fixed-schema model cannot express. In PLUCK, message
+type would be a random variable that controls which branches of a recursive
+generator fire.</p>
+</details>
+
+<details open>
+<summary>4. Cross-segment dependencies</summary>
+<p>In ORU^R01 (lab results), the value of <code>OBR.universal_service_id</code>
+(which test was ordered) constrains which <code>OBX</code> observations can appear
+and what their valid ranges are. These cross-segment correlations require
+conditional distributions that PClean&rsquo;s class-reference model doesn&rsquo;t support.</p>
+</details>
+</details>
+
+<!-- ===== SOURCE ===== -->
+<details class="top-section">
+<summary>Source</summary>
+
+<p>All field definitions, vocab tables, and data types come from:</p>
+<p>HL7 v2plus specification, 2021Jan edition<br>
+<a href="http://www.hl7.org/implement/standards/product_brief.cfm?product_id=588">http://www.hl7.org/implement/standards/product_brief.cfm?product_id=588</a></p>
+
+<p>The PClean framework:</p>
+<p>Lew, A., Agrawal, M., Sontag, D., &amp; Mansinghka, V. (2021).
+<em>PClean: Bayesian Data Cleaning at Scale with Domain-Specific Probabilistic Programming.</em>
+AISTATS 2021.<br>
+<a href="https://github.com/probcomp/PClean">https://github.com/probcomp/PClean</a></p>
+
+<p>The PLUCK language:</p>
+<p>Bowers, M., Lew, A., et al. (2025).
+<em>Stochastic Lazy Knowledge Compilation for Inference in Discrete Probabilistic Programs.</em>
+PLDI 2025.<br>
+<a href="https://github.com/mlb2251/Pluck.jl">https://github.com/mlb2251/Pluck.jl</a></p>
+</details>
+
+</body>
+</html>

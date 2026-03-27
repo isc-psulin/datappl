@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HL7v2 Primer for Probabilistic Programming Researchers</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 880px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #1a1a1a;
+    line-height: 1.7;
+  }
+  h1 { font-size: 1.8em; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 1.4em; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 1.15em; margin-top: 24px; }
+
+  details {
+    margin: 10px 0;
+    border-left: 3px solid #ccc;
+    padding-left: 16px;
+  }
+  details[open] > summary { font-weight: 600; }
+  summary {
+    cursor: pointer;
+    padding: 6px 0;
+    font-size: 1em;
+  }
+  summary:hover { color: #0066cc; }
+
+  .top-section > summary {
+    font-size: 1.2em;
+    font-weight: 700;
+    padding: 10px 0;
+  }
+  .top-section {
+    border-left: 4px solid #333;
+    margin: 24px 0;
+    padding-left: 20px;
+  }
+
+  code {
+    background: #f5f5f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 0.9em;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th { background: #f5f5f5; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  .callout {
+    background: #f0f7ff;
+    border-left: 4px solid #0066cc;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout-title { font-weight: 600; margin-bottom: 4px; }
+
+  .hl7-msg {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 0.82em;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .seg-tag { color: #0550ae; font-weight: 700; }
+  .field-sep { color: #999; }
+  .sub-sep { color: #d63384; }
+  .field-val { color: #1a1a1a; }
+  .field-empty { color: #ccc; }
+  .annotation {
+    color: #6a737d;
+    font-style: italic;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>HL7v2 Primer</h1>
+<p><em>For probabilistic programming researchers</em></p>
+
+<!-- ===== WHAT IS HL7 ===== -->
+<details class="top-section" open>
+<summary>What is HL7v2?</summary>
+
+<p>HL7v2 is the dominant messaging standard for exchanging clinical data between
+healthcare IT systems. When a patient is admitted, discharged, gets lab work,
+or has insurance updated, the hospital's systems exchange HL7v2 messages.</p>
+
+<p>Designed in the late 1980s, it is the ASCII serial protocol of healthcare &mdash;
+simple, ubiquitous, and full of quirks from 35+ years of real-world deployment.</p>
+
+<p><strong>Scale:</strong> A single mid-size hospital generates millions of HL7v2 messages
+per year. The dataset we work with contains ~2 million messages from routine operations.</p>
+</details>
+
+<!-- ===== MESSAGE TYPES (HIGH LEVEL FIRST) ===== -->
+<details class="top-section" open>
+<summary>Message Types</summary>
+
+<p>Every HL7v2 message has a <strong>type</strong>, identified by the MSH-9 field.
+The format is <code>TYPE^EVENT</code>. The type tells you the clinical domain;
+the event tells you what happened.</p>
+
+<h3>ADT &mdash; Admit, Discharge, Transfer</h3>
+<p>Tracks patient movement through the healthcare facility. The most common message category.</p>
+
+<table>
+  <tr><th>Message</th><th>Event</th><th>When it fires</th></tr>
+  <tr><td><code>ADT^A01</code></td><td>Admit</td><td>Patient admitted to inpatient bed</td></tr>
+  <tr><td><code>ADT^A02</code></td><td>Transfer</td><td>Patient moved to different unit/bed</td></tr>
+  <tr><td><code>ADT^A03</code></td><td>Discharge</td><td>Patient leaves the facility</td></tr>
+  <tr><td><code>ADT^A04</code></td><td>Register</td><td>Patient registers (outpatient, ED)</td></tr>
+  <tr><td><code>ADT^A08</code></td><td>Update</td><td>Any update to patient demographics</td></tr>
+  <tr><td><code>ADT^A11</code></td><td>Cancel admit</td><td>Undo an A01</td></tr>
+  <tr><td><code>ADT^A13</code></td><td>Cancel discharge</td><td>Undo an A03</td></tr>
+  <tr><td><code>ADT^A34</code></td><td>Merge</td><td>Two patient records merged into one</td></tr>
+</table>
+
+<details>
+<summary>Which segments appear in each ADT type?</summary>
+<pre>
+ADT^A01 (Admit):     MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
+ADT^A03 (Discharge): MSH  EVN  PID            PV1  PV2
+ADT^A04 (Register):  MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
+ADT^A08 (Update):    MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
+</pre>
+<p>All share MSH + EVN + PID + PV1. The optional segments (PD1, NK1, PV2, IN1)
+vary by event type. NK1 and IN1 can repeat (0..* per message).</p>
+</details>
+
+<h3>ORU &mdash; Observation Result (Lab Results)</h3>
+<p>Carries lab test orders and their results. The most structurally complex message type.</p>
+
+<pre>
+ORU^R01: MSH  PID  PV1  [ORC  OBR  OBX  OBX  OBX ...]
+                         |---- repeating group ----|
+</pre>
+
+<p>The <code>[ORC OBR OBX...]</code> group repeats &mdash; one OBR per test ordered,
+with 1&ndash;288 OBX results per OBR. This variable-length repetition is a key
+structural challenge for probabilistic modeling.</p>
+
+<h3>SIU &mdash; Scheduling</h3>
+<pre>SIU^S12 (New appointment): MSH  SCH  PID  RGS  AIL  AIP</pre>
+</details>
+
+<!-- ===== MESSAGE STRUCTURE ===== -->
+<details class="top-section" open>
+<summary>Message Structure</summary>
+
+<p>An HL7v2 message is a sequence of <strong>segments</strong>, each on its own line,
+with fields separated by <code>|</code> (pipe). Here is an example ADT^A08 message:</p>
+
+<div class="hl7-msg"><span class="seg-tag">MSH</span><span class="field-sep">|</span><span class="sub-sep">^~\&amp;</span><span class="field-sep">|</span><span class="field-val">EPIC</span><span class="field-sep">|</span><span class="field-val">BMC</span><span class="field-sep">|||</span><span class="field-val">20170614120000</span><span class="field-sep">||</span><span class="field-val">ADT<span class="sub-sep">^</span>A08</span><span class="field-sep">|</span><span class="field-val">MSG00001</span><span class="field-sep">|</span><span class="field-val">P</span><span class="field-sep">|</span><span class="field-val">2.5.1</span>
+<span class="seg-tag">EVN</span><span class="field-sep">|</span><span class="field-val">A08</span><span class="field-sep">|</span><span class="field-val">20170614120000</span>
+<span class="seg-tag">PID</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">||</span><span class="field-val">MR12345<span class="sub-sep">^^^</span>BMC<span class="sub-sep">^</span>MR</span><span class="field-sep">||</span><span class="field-val">SMITH<span class="sub-sep">^</span>JOHN<span class="sub-sep">^</span>A</span><span class="field-sep">||</span><span class="field-val">19800315</span><span class="field-sep">|</span><span class="field-val">M</span><span class="field-sep">|||</span><span class="field-val">123 MAIN ST<span class="sub-sep">^^</span>SPRINGFIELD<span class="sub-sep">^</span>MA<span class="sub-sep">^</span>01103</span>
+<span class="seg-tag">PD1</span><span class="field-sep">|||</span><span class="field-val">BMC PRIMARY CARE<span class="sub-sep">^^^^</span></span><span class="field-sep">||||||||</span><span class="field-val">N</span>
+<span class="seg-tag">NK1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">|</span><span class="field-val">SMITH<span class="sub-sep">^</span>JANE</span><span class="field-sep">|</span><span class="field-val">SPO</span><span class="field-sep">|</span><span class="field-val">456 MAIN ST<span class="sub-sep">^^</span>SPRINGFIELD<span class="sub-sep">^</span>MA<span class="sub-sep">^</span>01103</span>
+<span class="seg-tag">PV1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">|</span><span class="field-val">I</span><span class="field-sep">|</span><span class="field-val">4N<span class="sub-sep">^</span>415<span class="sub-sep">^</span>1<span class="sub-sep">^^^</span>BMC</span><span class="field-sep">||||</span><span class="field-val">1234567890<span class="sub-sep">^</span>JONES<span class="sub-sep">^</span>ROBERT<span class="sub-sep">^</span>J<span class="sub-sep">^^^</span>MD</span><span class="field-sep">|||</span><span class="field-val">MED</span><span class="field-sep">||||</span><span class="field-val">1</span><span class="field-sep">|||</span><span class="field-val">1234567890<span class="sub-sep">^</span>JONES<span class="sub-sep">^</span>ROBERT<span class="sub-sep">^</span>J<span class="sub-sep">^^^</span>MD</span>
+<span class="seg-tag">PV2</span><span class="field-sep">||||||||||||||||||||||||||||||||||||||||||||||||</span><span class="field-val">20170620</span>
+<span class="seg-tag">IN1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">||</span><span class="field-val">BCBS001</span><span class="field-sep">|</span><span class="field-val">BLUE CROSS BLUE SHIELD</span><span class="field-sep">|||||||||||</span><span class="field-val">SMITH<span class="sub-sep">^</span>JOHN<span class="sub-sep">^</span>A</span><span class="field-sep">|</span><span class="field-val">SEL</span><span class="field-sep">|</span><span class="field-val">19800315</span></div>
+
+<p>Reading top to bottom: the three-letter prefix on each line is the <strong>segment type</strong>.
+Within each line, <code>|</code> separates <strong>fields</strong>, and <code>^</code> separates
+<strong>sub-components</strong> within a field.</p>
+</details>
+
+<!-- ===== SEGMENTS ===== -->
+<details class="top-section" open>
+<summary>Segments</summary>
+
+<p>Each segment type carries a specific category of clinical information.
+A message is composed of segments in a defined order.</p>
+
+<table>
+  <tr><th>Segment</th><th>Name</th><th>What it carries</th></tr>
+  <tr><td><code>MSH</code></td><td>Message Header</td><td>Metadata: who sent it, when, what version, what type of message</td></tr>
+  <tr><td><code>EVN</code></td><td>Event Type</td><td>What triggered this message (admit, discharge, update, etc.)</td></tr>
+  <tr><td><code>PID</code></td><td>Patient Identification</td><td>Name, DOB, sex, race, address, account numbers</td></tr>
+  <tr><td><code>PD1</code></td><td>Patient Demographics</td><td>Living situation, primary care facility, living will</td></tr>
+  <tr><td><code>NK1</code></td><td>Next of Kin</td><td>Emergency contacts and relationship to patient</td></tr>
+  <tr><td><code>PV1</code></td><td>Patient Visit</td><td>The encounter: location, attending doctor, admit/discharge dates</td></tr>
+  <tr><td><code>PV2</code></td><td>Patient Visit (add'l)</td><td>Extended visit info: admit reason, expected surgery date</td></tr>
+  <tr><td><code>IN1</code></td><td>Insurance</td><td>Coverage: plan, company, policy number, insured party</td></tr>
+  <tr><td><code>OBR</code></td><td>Observation Request</td><td>Lab order: what test was ordered, by whom</td></tr>
+  <tr><td><code>OBX</code></td><td>Observation Result</td><td>Lab result: value, units, reference range</td></tr>
+  <tr><td><code>ORC</code></td><td>Common Order</td><td>Order control: new order, cancel, status change</td></tr>
+</table>
+
+<details>
+<summary>Fields within a segment</summary>
+<p>Fields are positional within a segment. For example, in a PID segment:</p>
+<pre>PID|1||MR12345^^^BMC^MR||SMITH^JOHN^A||19800315|M</pre>
+<table>
+  <tr><th>Position</th><th>Field Name</th><th>Value</th></tr>
+  <tr><td>PID-1</td><td>Set ID</td><td><code>1</code></td></tr>
+  <tr><td>PID-2</td><td>Patient ID</td><td><em>(empty &mdash; withdrawn field)</em></td></tr>
+  <tr><td>PID-3</td><td>Patient Identifier List</td><td><code>MR12345^^^BMC^MR</code></td></tr>
+  <tr><td>PID-4</td><td><em>(empty)</em></td><td></td></tr>
+  <tr><td>PID-5</td><td>Patient Name</td><td><code>SMITH^JOHN^A</code></td></tr>
+  <tr><td>PID-6</td><td><em>(empty)</em></td><td></td></tr>
+  <tr><td>PID-7</td><td>Date/Time of Birth</td><td><code>19800315</code></td></tr>
+  <tr><td>PID-8</td><td>Administrative Sex</td><td><code>M</code></td></tr>
+</table>
+<p>The HL7 spec defines the meaning and data type of every field position for every segment.
+PID has up to 40 defined fields; PV1 has up to 52.</p>
+</details>
+
+<details>
+<summary>Sub-components within a field</summary>
+<p>Some fields have internal structure, using <code>^</code> as separator:</p>
+<table>
+  <tr><th>Field value</th><th>Meaning</th></tr>
+  <tr>
+    <td><code>SMITH^JOHN^A</code></td>
+    <td>last name <code>^</code> first name <code>^</code> middle initial</td>
+  </tr>
+  <tr>
+    <td><code>MR12345^^^BMC^MR</code></td>
+    <td>ID <code>^</code> check digit <code>^</code> scheme <code>^</code> assigning authority <code>^</code> type code</td>
+  </tr>
+  <tr>
+    <td><code>4N^415^1^^^BMC</code></td>
+    <td>unit <code>^</code> room <code>^</code> bed <code>^</code> <em>(3 empty)</em> <code>^</code> facility</td>
+  </tr>
+</table>
+<p>This recursive structure (message &rarr; segments &rarr; fields &rarr; components &rarr; sub-components)
+makes HL7v2 a natural fit for hierarchical probabilistic models.</p>
+</details>
+</details>
+
+<!-- ===== WHY DATA CLEANING ===== -->
+<details class="top-section" open>
+<summary>Why This is a Data Cleaning Problem</summary>
+
+<p>In theory, HL7 messages follow the spec perfectly. In practice, they don't.</p>
+
+<details>
+<summary>Character-level corruption</summary>
+<p>Names, addresses, and IDs accumulate typos as data passes between systems:</p>
+<pre>
+SMITH^JOHN    (original)
+SMTIH^JOHN    (transposition)
+SMITH^JON     (deletion)
+SMITH^JOHHN   (insertion)
+</pre>
+<p>These are the same patient, observed through noisy channels. Each HL7 message
+is a potentially corrupted snapshot of the true patient identity.</p>
+</details>
+
+<details>
+<summary>Structural variation</summary>
+<p>The spec says PV1 has 52 fields. Real data shows 6 distinct field counts:</p>
+<table>
+  <tr><th>Fields</th><th>Frequency</th></tr>
+  <tr><td>19 fields</td><td>47.4%</td></tr>
+  <tr><td>52 fields</td><td>41.0%</td></tr>
+  <tr><td>45 fields</td><td>9.3%</td></tr>
+  <tr><td>44 fields</td><td>2.3%</td></tr>
+  <tr><td>39 fields</td><td>&lt;0.01%</td></tr>
+  <tr><td>49 fields</td><td>&lt;0.01%</td></tr>
+</table>
+<p>Each variant is a different &ldquo;dialect&rdquo; of the same segment. The number of
+fields present is itself a latent structural variable.</p>
+</details>
+
+<details>
+<summary>Missing and optional data</summary>
+<p>Fields are optional at multiple levels:</p>
+<ul>
+  <li>A <strong>segment</strong> may be absent from the message entirely (PD1, NK1, IN1 are optional in ADT)</li>
+  <li>A <strong>field</strong> within a present segment may be empty (consecutive <code>||</code> delimiters)</li>
+  <li><strong>Sub-components</strong> within a field may be missing (consecutive <code>^^</code>)</li>
+</ul>
+<p>The optionality structure depends on the message type, the sending system,
+and institutional conventions.</p>
+</details>
+
+<details>
+<summary>Entity resolution</summary>
+<p>The same patient appears in thousands of messages over years of care.
+Each message carries a potentially different (corrupted) snapshot of their demographics.
+The core inference problem: given many noisy observations, recover the true
+patient identity and link records that refer to the same person.</p>
+</details>
+
+<details>
+<summary>Vocabulary drift</summary>
+<p>Code tables (sex, race, marital status) are supposed to use HL7-defined
+values, but implementations often use local codes, abbreviations, or
+free text where coded values are expected. A &ldquo;sex&rdquo; field might contain
+<code>M</code>, <code>MALE</code>, <code>1</code>, or <code>Male</code> depending on the source system.</p>
+</details>
+</details>
+
+<!-- ===== WHY PPL RESEARCH ===== -->
+<details class="top-section" open>
+<summary>Why This Matters for PPL Research</summary>
+
+<p>HL7v2 is a real-world domain with properties that align with open problems
+in probabilistic programming:</p>
+
+<table>
+  <tr><th>Property</th><th>PPL challenge</th></tr>
+  <tr>
+    <td>Known generative structure (the spec defines the grammar)</td>
+    <td>The model is derivable from the specification &mdash; not hand-crafted per dataset</td>
+  </tr>
+  <tr>
+    <td>Massive scale (millions of messages per institution)</td>
+    <td>Inference must be tractable on large datasets</td>
+  </tr>
+  <tr>
+    <td>Multiple levels of corruption (character, structural, semantic)</td>
+    <td>Requires composing noise models at different abstraction levels</td>
+  </tr>
+  <tr>
+    <td>Natural entity resolution (same patient across many messages)</td>
+    <td>Latent entity inference with an unknown number of entities (CRP/DPM)</td>
+  </tr>
+  <tr>
+    <td>Recursive/variable-length structure (repeating segment groups)</td>
+    <td>Recursive algebraic data types and geometric stopping distributions</td>
+  </tr>
+  <tr>
+    <td>346+ segment types in the HL7 spec</td>
+    <td>Model generation from formal specifications (meta-programming)</td>
+  </tr>
+</table>
+
+<p>It is a natural testbed for probabilistic programs that need to handle
+structured data with both value-level noise and structural uncertainty.</p>
+</details>
+
+</body>
+</html>
