@@ -42,24 +42,16 @@ include("adt_a08.jl")
 To run inference, you need a CSV file with columns matching the query
 mapping (PID_PatientName, PV1_PatientClass, etc.) — one row per message.
 
-## What PClean cannot model (and PLUCK can)
+## What PClean cannot model
 
 ### 1. Variable-length repeating segments
 
-Real HL7 messages have segments that repeat a variable number of times:
+Some HL7 messages have segments that repeat a variable number of times:
 - NK1 (Next of Kin): 0..* per message (typically 0-3)
 - IN1 (Insurance): 0..* per message (typically 0-2)
 - OBX (Observations in ORU): 1-288 per message
 
 PClean requires fixed cardinality — we model exactly 1 NK1 and 1 IN1.
-PLUCK's recursive list types can express:
-
-```scheme
-(define (generate-nk1-list)
-  (if (flip 0.3)      ;; 30% chance of another NK1
-    (Cons (generate-nk1) (generate-nk1-list))
-    (Nil)))
-```
 
 ### 2. Structural variants (variable field counts)
 
@@ -68,8 +60,7 @@ PV1 has 6 known structural variants in real data:
 - 52 fields (41.0% of messages)
 - 44 fields (2.3%), 45 fields (9.3%), etc.
 
-PClean models one fixed schema. PLUCK can model the field count itself
-as a random variable.
+PClean models one fixed schema.
 
 ### 3. Message-type-dependent segment composition
 
@@ -86,15 +77,19 @@ In ORU^R01 (lab results), OBR.universal_service_id constrains which OBX
 observations can appear. These cross-segment correlations require
 conditional distributions that PClean's class-reference model doesn't support.
 
-## HL7 ADT message types covered
+## HL7 ADT message types
 
-| Type | Event | Segments |
-|------|-------|----------|
-| ADT^A01 | Admit | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 |
-| ADT^A02 | Transfer | MSH, EVN, PID, PV1 |
-| ADT^A03 | Discharge | MSH, EVN, PID, PV1, PV2 |
-| ADT^A04 | Register | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 |
-| ADT^A08 | Update | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 |
+This model covers ADT^A08 directly. ADT^A01 and ADT^A04 share the same
+segment composition and can use this model as-is. ADT^A02 and ADT^A03
+use fewer segments and would need separate models.
+
+| Type | Event | Segments | Covered? |
+|------|-------|----------|----------|
+| ADT^A01 | Admit | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 | Yes (same as A08) |
+| ADT^A02 | Transfer | MSH, EVN, PID, PV1 | No |
+| ADT^A03 | Discharge | MSH, EVN, PID, PV1, PV2 | No |
+| ADT^A04 | Register | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 | Yes (same as A08) |
+| ADT^A08 | Update | MSH, EVN, PID, PD1, NK1, PV1, PV2, IN1 | Yes |
 
 ## Source
 
