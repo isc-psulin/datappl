@@ -3,7 +3,6 @@
 ## Documentation
 
 - [HL7v2 Primer](https://isc-psulin.github.io/datappl/hl7v2-primer.html) — What HL7v2 is, how messages are structured, and why it's a data cleaning problem
-- [Model Guide](https://isc-psulin.github.io/datappl/model-guide.html) — The ADT^A08 PClean model: entity structure, how to run it, and why we chose this message type
 
 ## What this is
 
