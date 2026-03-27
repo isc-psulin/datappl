@@ -15,7 +15,6 @@
   }
   h1 { font-size: 1.8em; border-bottom: 2px solid #333; padding-bottom: 8px; }
   h2 { font-size: 1.4em; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-  h3 { font-size: 1.15em; margin-top: 24px; }
 
   details {
     margin: 10px 0;
@@ -99,22 +98,47 @@
 <p>HL7v2 is a messaging standard for exchanging clinical data between healthcare
 IT systems. When a patient is admitted, discharged, gets lab work, or has
 insurance updated, the hospital&rsquo;s systems exchange HL7v2 messages. It has been
-the dominant standard since the late 1980s &mdash; simple, ubiquitous, and full of
-quirks from 35+ years of real-world deployment.</p>
-
-<p>A single mid-size hospital generates millions of HL7v2 messages per year.</p>
+the dominant standard since the late 1980s. A single mid-size hospital
+generates millions of these messages per year.</p>
 </details>
 
-<!-- ===== HOW A MESSAGE IS STRUCTURED ===== -->
+<!-- ===== MESSAGES AND TYPES ===== -->
 <details class="top-section" open>
-<summary>How a Message is Structured</summary>
+<summary>Messages and Types</summary>
 
-<p>An HL7v2 message is plain text. It is made up of <strong>segments</strong>, one per line.
-Each segment starts with a three-letter code that identifies what kind of data
-it carries. Within a segment, <strong>fields</strong> are separated by <code>|</code> (pipe),
-and <strong>sub-components</strong> within a field are separated by <code>^</code> (caret).</p>
+<p>An HL7v2 message is a plain-text record of something that happened in
+a hospital &mdash; a patient was admitted, a lab result came back, an appointment
+was scheduled. Each message has a <strong>type</strong> that says what kind of event
+it represents.</p>
 
-<p>Here is an example ADT^A08 (patient update) message:</p>
+<p>There are many message types. The major categories are:</p>
+<ul>
+  <li><strong>ADT</strong> (Admit, Discharge, Transfer) &mdash; patient movement and demographics</li>
+  <li><strong>ORU</strong> (Observation Result) &mdash; lab results</li>
+  <li><strong>SIU</strong> (Scheduling) &mdash; appointments</li>
+  <li><strong>ORM</strong> (Order) &mdash; clinical orders</li>
+</ul>
+
+<p>Within each category there are specific event types. For example, ADT alone
+has dozens: A01 (admit), A02 (transfer), A03 (discharge), A04 (register),
+A08 (update demographics), and many more.</p>
+
+<p>In this repo we model <strong>ADT^A08</strong> (patient demographic update). We chose
+it because it uses a fixed set of 8 segments covering demographics, next of kin,
+visit, and insurance &mdash; which fits PClean&rsquo;s fixed-schema requirement. Other
+message types have variable-length repeating groups that PClean cannot express.</p>
+</details>
+
+<!-- ===== STRUCTURE OF A MESSAGE ===== -->
+<details class="top-section" open>
+<summary>Structure of a Message</summary>
+
+<p>A message is made up of <strong>segments</strong>, one per line. Each segment starts
+with a three-letter code that identifies what kind of data it carries.
+Within a segment, <strong>fields</strong> are separated by <code>|</code> (pipe), and
+<strong>sub-components</strong> within a field are separated by <code>^</code> (caret).</p>
+
+<p>Here is an example ADT^A08 message:</p>
 
 <div class="hl7-msg"><span class="seg-tag">MSH</span><span class="field-sep">|</span><span class="sub-sep">^~\&amp;</span><span class="field-sep">|</span><span class="field-val">EPIC</span><span class="field-sep">|</span><span class="field-val">BMC</span><span class="field-sep">|||</span><span class="field-val">20170614120000</span><span class="field-sep">||</span><span class="field-val">ADT<span class="sub-sep">^</span>A08</span><span class="field-sep">|</span><span class="field-val">MSG00001</span><span class="field-sep">|</span><span class="field-val">P</span><span class="field-sep">|</span><span class="field-val">2.5.1</span>
 <span class="seg-tag">EVN</span><span class="field-sep">|</span><span class="field-val">A08</span><span class="field-sep">|</span><span class="field-val">20170614120000</span>
@@ -125,10 +149,24 @@ and <strong>sub-components</strong> within a field are separated by <code>^</cod
 <span class="seg-tag">PV2</span><span class="field-sep">||||||||||||||||||||||||||||||||||||||||||||||||</span><span class="field-val">20170620</span>
 <span class="seg-tag">IN1</span><span class="field-sep">|</span><span class="field-val">1</span><span class="field-sep">||</span><span class="field-val">BCBS001</span><span class="field-sep">|</span><span class="field-val">BLUE CROSS BLUE SHIELD</span><span class="field-sep">|||||||||||</span><span class="field-val">SMITH<span class="sub-sep">^</span>JOHN<span class="sub-sep">^</span>A</span><span class="field-sep">|</span><span class="field-val">SEL</span><span class="field-sep">|</span><span class="field-val">19800315</span></div>
 
-<p>Each line is a segment. The first line (<code>MSH</code>) is the message header &mdash;
-it contains metadata like who sent the message and what type it is. The
-<code>PID</code> line carries patient identification (name, date of birth, address).
-The <code>PV1</code> line describes the patient&rsquo;s visit (location, attending doctor).</p>
+<p>This message has 8 segments. The first line (<code>MSH</code>) is the message
+header &mdash; it says who sent the message, when, and what type it is.
+<code>PID</code> carries the patient&rsquo;s name, date of birth, and address.
+<code>PV1</code> describes the visit (location, attending doctor). And so on.</p>
+
+<h2>Segments in an ADT^A08 message</h2>
+
+<table>
+  <tr><th>Segment</th><th>Name</th><th>What it carries</th></tr>
+  <tr><td><code>MSH</code></td><td>Message Header</td><td>Metadata: who sent it, when, what type of message</td></tr>
+  <tr><td><code>EVN</code></td><td>Event Type</td><td>What triggered this message</td></tr>
+  <tr><td><code>PID</code></td><td>Patient Identification</td><td>Name, DOB, sex, race, address, account numbers</td></tr>
+  <tr><td><code>PD1</code></td><td>Patient Demographics</td><td>Living situation, primary care facility, living will</td></tr>
+  <tr><td><code>NK1</code></td><td>Next of Kin</td><td>Emergency contacts and relationship to patient</td></tr>
+  <tr><td><code>PV1</code></td><td>Patient Visit</td><td>Location, attending doctor, admit/discharge dates</td></tr>
+  <tr><td><code>PV2</code></td><td>Patient Visit (add'l)</td><td>Admit reason, expected surgery date</td></tr>
+  <tr><td><code>IN1</code></td><td>Insurance</td><td>Plan, company, policy number, insured party</td></tr>
+</table>
 
 <details>
 <summary>Fields in detail</summary>
@@ -170,163 +208,6 @@ each position means for every segment type.</p>
 </table>
 <p>This gives HL7v2 a hierarchical structure: message &rarr; segments &rarr; fields &rarr; sub-components.</p>
 </details>
-</details>
-
-<!-- ===== SEGMENT TYPES ===== -->
-<details class="top-section" open>
-<summary>Segment Types</summary>
-
-<p>Each three-letter code identifies a segment type. Here are the ones used in ADT messages:</p>
-
-<table>
-  <tr><th>Segment</th><th>Name</th><th>What it carries</th></tr>
-  <tr><td><code>MSH</code></td><td>Message Header</td><td>Metadata: who sent it, when, what version, what type of message</td></tr>
-  <tr><td><code>EVN</code></td><td>Event Type</td><td>What triggered this message (admit, discharge, update, etc.)</td></tr>
-  <tr><td><code>PID</code></td><td>Patient Identification</td><td>Name, DOB, sex, race, address, account numbers</td></tr>
-  <tr><td><code>PD1</code></td><td>Patient Demographics</td><td>Living situation, primary care facility, living will</td></tr>
-  <tr><td><code>NK1</code></td><td>Next of Kin</td><td>Emergency contacts and relationship to patient</td></tr>
-  <tr><td><code>PV1</code></td><td>Patient Visit</td><td>The encounter: location, attending doctor, admit/discharge dates</td></tr>
-  <tr><td><code>PV2</code></td><td>Patient Visit (add'l)</td><td>Extended visit info: admit reason, expected surgery date</td></tr>
-  <tr><td><code>IN1</code></td><td>Insurance</td><td>Coverage: plan, company, policy number, insured party</td></tr>
-</table>
-
-<p>Other message types use additional segments like <code>OBR</code> (lab orders),
-<code>OBX</code> (lab results), and <code>ORC</code> (order control).</p>
-</details>
-
-<!-- ===== MESSAGE TYPES ===== -->
-<details class="top-section" open>
-<summary>Message Types</summary>
-
-<p>Every HL7v2 message has a <strong>type</strong> that describes what clinical event
-triggered it. The type is carried in the MSH segment (the first line of every
-message). It has two parts: a category and an event. For example,
-<code>ADT^A08</code> means category ADT (patient administration), event A08 (update).</p>
-
-<h3>ADT &mdash; Admit, Discharge, Transfer</h3>
-<p>The most common category. Tracks patient movement through the facility:</p>
-
-<table>
-  <tr><th>Message</th><th>Event</th><th>When it fires</th></tr>
-  <tr><td><code>ADT^A01</code></td><td>Admit</td><td>Patient admitted to inpatient bed</td></tr>
-  <tr><td><code>ADT^A02</code></td><td>Transfer</td><td>Patient moved to different unit/bed</td></tr>
-  <tr><td><code>ADT^A03</code></td><td>Discharge</td><td>Patient leaves the facility</td></tr>
-  <tr><td><code>ADT^A04</code></td><td>Register</td><td>Patient registers (outpatient, ED)</td></tr>
-  <tr><td><code>ADT^A08</code></td><td>Update</td><td>Any update to patient demographics</td></tr>
-</table>
-
-<details>
-<summary>Which segments appear in each ADT type?</summary>
-<pre>
-ADT^A01 (Admit):     MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
-ADT^A02 (Transfer):  MSH  EVN  PID            PV1
-ADT^A03 (Discharge): MSH  EVN  PID            PV1  PV2
-ADT^A04 (Register):  MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
-ADT^A08 (Update):    MSH  EVN  PID  PD1  NK1  PV1  PV2  IN1
-</pre>
-<p>All share MSH + EVN + PID + PV1. The optional segments (PD1, NK1, PV2, IN1)
-vary by event type. Some segments like NK1 and IN1 can repeat
-(a patient may have multiple emergency contacts or insurance plans).</p>
-</details>
-
-<h3>ORU &mdash; Observation Result (Lab Results)</h3>
-<p>Carries lab test orders and their results:</p>
-
-<pre>
-ORU^R01: MSH  PID  PV1  [ORC  OBR  OBX  OBX  OBX ...]
-                         |---- repeating group ----|
-</pre>
-
-<p>The group in brackets repeats &mdash; one OBR per test ordered,
-with multiple OBX results per OBR.</p>
-
-<h3>SIU &mdash; Scheduling</h3>
-<pre>SIU^S12 (New appointment): MSH  SCH  PID  RGS  AIL  AIP</pre>
-</details>
-
-<!-- ===== WHY DATA CLEANING ===== -->
-<details class="top-section" open>
-<summary>Why This is a Data Cleaning Problem</summary>
-
-<p>In theory, HL7 messages follow the spec perfectly. In practice, they don&rsquo;t.</p>
-
-<details>
-<summary>Character-level corruption</summary>
-<p>Names, addresses, and IDs accumulate typos as data passes between systems:</p>
-<pre>
-SMITH^JOHN    (original)
-SMTIH^JOHN    (transposition)
-SMITH^JON     (deletion)
-SMITH^JOHHN   (insertion)
-</pre>
-<p>These are the same patient, observed through noisy channels.</p>
-</details>
-
-<details>
-<summary>Structural variation</summary>
-<p>The HL7 spec defines a fixed number of fields per segment, but implementations
-often send fewer fields, truncating trailing empty ones. The number of fields
-present can vary across sending systems, creating structural &ldquo;dialects&rdquo;
-of the same segment type.</p>
-</details>
-
-<details>
-<summary>Missing and optional data</summary>
-<p>Fields are optional at multiple levels:</p>
-<ul>
-  <li>A segment may be absent from the message entirely (PD1, NK1, IN1 are optional in ADT)</li>
-  <li>A field within a present segment may be empty (consecutive <code>||</code>)</li>
-  <li>Sub-components within a field may be missing (consecutive <code>^^</code>)</li>
-</ul>
-</details>
-
-<details>
-<summary>Entity resolution</summary>
-<p>The same patient appears in thousands of messages over years of care.
-Each message carries a potentially different (corrupted) snapshot of their demographics.
-The core problem: given many noisy observations, recover the true
-patient identity and link records that refer to the same person.</p>
-</details>
-
-<details>
-<summary>Vocabulary drift</summary>
-<p>Code tables (sex, race, marital status) are supposed to use HL7-defined
-values, but implementations often use local codes, abbreviations, or
-free text. A &ldquo;sex&rdquo; field might contain
-<code>M</code>, <code>MALE</code>, <code>1</code>, or <code>Male</code> depending on the source system.</p>
-</details>
-</details>
-
-<!-- ===== WHY PPL RESEARCH ===== -->
-<details class="top-section" open>
-<summary>Why This Matters for PPL Research</summary>
-
-<p>HL7v2 is a real-world domain with properties that align with open problems
-in probabilistic programming:</p>
-
-<table>
-  <tr><th>Property</th><th>PPL challenge</th></tr>
-  <tr>
-    <td>Known generative structure (the spec defines the grammar)</td>
-    <td>The model is derivable from the specification &mdash; not hand-crafted per dataset</td>
-  </tr>
-  <tr>
-    <td>Massive scale (millions of messages per institution)</td>
-    <td>Inference must be tractable on large datasets</td>
-  </tr>
-  <tr>
-    <td>Multiple levels of corruption (character, structural, semantic)</td>
-    <td>Requires composing noise models at different abstraction levels</td>
-  </tr>
-  <tr>
-    <td>Natural entity resolution (same patient across many messages)</td>
-    <td>Latent entity inference with an unknown number of entities (CRP/DPM)</td>
-  </tr>
-  <tr>
-    <td>Recursive/variable-length structure (repeating segment groups)</td>
-    <td>Recursive algebraic data types and geometric stopping distributions</td>
-  </tr>
-</table>
 </details>
 
 </body>
