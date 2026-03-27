@@ -31,6 +31,30 @@ For background on HL7v2 message structure, see the
 | PV2 | Patient Visit (add'l) | Admit reason, expected surgery date |
 | IN1 | Insurance | Plan ID, company ID, company name, insured name, policy number |
 
+### Generate sample messages
+
+`sample_adt_a08.jl` forward-samples from the model's priors and applies
+character-level corruption to produce synthetic dirty messages:
+
+```bash
+julia sample_adt_a08.jl           # 10 messages to stdout
+julia sample_adt_a08.jl 100       # 100 messages
+julia sample_adt_a08.jl 50 out.hl7  # 50 messages to file
+```
+
+Example output (note the typos — `RODRIGGUEZ`, `CQGNA`, `CO8LEY`):
+
+```
+MSH|^~\&|EPIC|BHMC|||20180912103200||ADT^A08|MSG00001|T|2.8
+EVN|A08|20180912103200
+PID|1||MR39122^^^BHMC^MR||RODRIGUEZ^MICHAEL^K||195210S1I|N|||473I CEDAR LN^^SPRINGFIELD^OH^61310
+PD1|S|R|BHMC PRIMARY CARE^^^^||||F|||P
+NK1|1|MARTIN^THOMAS|BRO|9721 WASHINGTON BLVD^^OXFORD^NY^80080
+PV1|1|P|J1^96^4^^^BHMC||||3695272602^MARTINEZ^ROBERT^^^^MD|||OBS||||1
+PV2
+IN1|1||HUMANA|HUMANA|||||||||||RODRIGGUEZ^MICHAEL^K|SEL|19521019
+```
+
 ## Source
 
 All field definitions, vocab tables, and data types come from:
