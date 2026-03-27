@@ -6,7 +6,7 @@
 
 ## What this is
 
-A PClean (Julia DSL) model for HL7v2 ADT^A08 (Patient Update) messages,
+A PClean model for HL7v2 ADT^A08 (Patient Update) messages,
 derived entirely from the HL7 v2plus specification (2021Jan edition).
 No institutional data was used — all priors are uninformative/uniform.
 
